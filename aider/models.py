@@ -311,13 +311,15 @@ model_info_manager = ModelInfoManager()
 
 class Model(ModelSettings):
     def __init__(
-        self, model, weak_model=None, editor_model=None, editor_edit_format=None, verbose=False
+        self, model, weak_model=None, editor_model=None, editor_edit_format=None, verbose=False,
+        model_settings_name=None
     ):
         # Map any alias to its canonical name
         model = MODEL_ALIASES.get(model, model)
 
         self.name = model
         self.verbose = verbose
+        self.model_settings_name = model_settings_name or model
 
         self.max_chat_history_tokens = 1024
         self.weak_model = None
@@ -328,7 +330,7 @@ class Model(ModelSettings):
             (ms for ms in MODEL_SETTINGS if ms.name == "aider/extra_params"), None
         )
 
-        self.info = self.get_model_info(model)
+        self.info = self.get_model_info(self.model_settings_name)
 
         # Are all needed keys/params available?
         res = self.validate_environment()
@@ -340,7 +342,7 @@ class Model(ModelSettings):
         # with minimum 1k and maximum 8k
         self.max_chat_history_tokens = min(max(max_input_tokens / 16, 1024), 8192)
 
-        self.configure_model_settings(model)
+        self.configure_model_settings(self.model_settings_name)
         if weak_model is False:
             self.weak_model_name = None
         else:
@@ -365,12 +367,12 @@ class Model(ModelSettings):
         if self.reasoning_tag is None and self.remove_reasoning is not None:
             self.reasoning_tag = self.remove_reasoning
 
-    def configure_model_settings(self, model):
-        # Look for exact model match
+    def configure_model_settings(self, model_settings_name):
+        # Look for exact model match using the settings name
         exact_match = False
         for ms in MODEL_SETTINGS:
             # direct match, or match "provider/<model>"
-            if model == ms.name:
+            if model_settings_name == ms.name:
                 self._copy_fields(ms)
                 exact_match = True
                 break  # Continue to apply overrides
@@ -379,11 +381,11 @@ class Model(ModelSettings):
         if self.accepts_settings is None:
             self.accepts_settings = []
 
-        model = model.lower()
+        model_settings_name = model_settings_name.lower()
 
         # If no exact match, try generic settings
         if not exact_match:
-            self.apply_generic_model_settings(model)
+            self.apply_generic_model_settings(model_settings_name)
 
         # Apply override settings last if they exist
         if (
@@ -581,6 +583,7 @@ class Model(ModelSettings):
         self.weak_model = Model(
             self.weak_model_name,
             weak_model=False,
+            model_settings_name=self.model_settings_name if self.weak_model_name == self.name else None,
         )
         return self.weak_model
 
@@ -600,6 +603,7 @@ class Model(ModelSettings):
             self.editor_model = Model(
                 self.editor_model_name,
                 editor_model=False,
+                model_settings_name=self.model_settings_name if self.editor_model_name == self.name else None,
             )
 
         if not self.editor_edit_format:

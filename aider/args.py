@@ -130,6 +130,12 @@ def get_parser(default_config_files, git_root):
         help="Specify a file with context window and costs for unknown models",
     ).complete = shtab.FILE
     group.add_argument(
+        "--model-settings-name",
+        metavar="MODEL_SETTINGS_NAME",
+        default=None,
+        help="Override the model name used for settings lookup (useful for aliasing custom models)",
+    )
+    group.add_argument(
         "--alias",
         action="append",
         metavar="ALIAS:MODEL",
