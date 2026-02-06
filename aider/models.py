@@ -204,8 +204,11 @@ class ModelInfoManager:
                 pass
 
     def get_model_from_cached_json_db(self, model):
+        print(f"[DEBUG] get_model_from_cached_json_db called with: {model}")
+        
         data = self.local_model_metadata.get(model)
         if data:
+            print(f"[DEBUG] Found in local_model_metadata: {model}")
             return data
 
         # Ensure cache is loaded before checking content
@@ -215,45 +218,61 @@ class ModelInfoManager:
             self._update_cache()
 
         if not self.content:
+            print(f"[DEBUG] No cached content available")
             return dict()
 
         info = self.content.get(model, dict())
         if info:
+            print(f"[DEBUG] Found exact match in cache: {model}")
             return info
 
         pieces = model.split("/")
         if len(pieces) == 2:
+            print(f"[DEBUG] Trying provider/model split: {pieces[0]} / {pieces[1]}")
             info = self.content.get(pieces[1])
             if info and info.get("litellm_provider") == pieces[0]:
+                print(f"[DEBUG] Found via provider match: {pieces[1]}")
                 return info
 
+        print(f"[DEBUG] No match found for: {model}")
         return dict()
 
     def get_model_info(self, model):
+        print(f"[DEBUG] ModelInfoManager.get_model_info called with: {model}")
+        
         cached_info = self.get_model_from_cached_json_db(model)
+        print(f"[DEBUG] cached_info: {bool(cached_info)}")
 
         litellm_info = None
         if litellm._lazy_module or not cached_info:
             try:
+                print(f"[DEBUG] Trying litellm.get_model_info for: {model}")
                 litellm_info = litellm.get_model_info(model)
+                print(f"[DEBUG] litellm returned: {bool(litellm_info)}")
             except Exception as ex:
+                print(f"[DEBUG] litellm.get_model_info exception: {ex}")
                 if "model_prices_and_context_window.json" not in str(ex):
                     print(str(ex))
 
         if litellm_info:
+            print(f"[DEBUG] Returning litellm_info")
             return litellm_info
 
         if not cached_info and model.startswith("openrouter/"):
+            print(f"[DEBUG] Trying OpenRouter lookup for: {model}")
             # First try using the locally cached OpenRouter model database
             openrouter_info = self.openrouter_manager.get_model_info(model)
             if openrouter_info:
+                print(f"[DEBUG] Found in OpenRouter manager")
                 return openrouter_info
 
             # Fallback to legacy web-scraping if the API cache does not contain the model
             openrouter_info = self.fetch_openrouter_model_info(model)
             if openrouter_info:
+                print(f"[DEBUG] Found via OpenRouter web scraping")
                 return openrouter_info
 
+        print(f"[DEBUG] Returning cached_info: {bool(cached_info)}")
         return cached_info
 
     def fetch_openrouter_model_info(self, model):
@@ -330,7 +349,20 @@ class Model(ModelSettings):
             (ms for ms in MODEL_SETTINGS if ms.name == "aider/extra_params"), None
         )
 
+        # Debug output
+        if verbose:
+            print(f"[DEBUG] Model.__init__:")
+            print(f"  self.name = {self.name}")
+            print(f"  self.model_settings_name = {self.model_settings_name}")
+            print(f"  Looking up model info for: {self.model_settings_name}")
+
         self.info = self.get_model_info(self.model_settings_name)
+
+        if verbose:
+            print(f"  self.info keys: {list(self.info.keys()) if self.info else 'None'}")
+            if self.info:
+                print(f"  max_input_tokens: {self.info.get('max_input_tokens')}")
+                print(f"  litellm_provider: {self.info.get('litellm_provider')}")
 
         # Are all needed keys/params available?
         res = self.validate_environment()
@@ -354,7 +386,12 @@ class Model(ModelSettings):
             self.get_editor_model(editor_model, editor_edit_format)
 
     def get_model_info(self, model):
-        return model_info_manager.get_model_info(model)
+        if self.verbose:
+            print(f"[DEBUG] Model.get_model_info called with: {model}")
+        info = model_info_manager.get_model_info(model)
+        if self.verbose:
+            print(f"[DEBUG] Model.get_model_info returned: {info}")
+        return info
 
     def _copy_fields(self, source):
         """Helper to copy fields from a ModelSettings instance to self"""
