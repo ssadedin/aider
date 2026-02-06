@@ -561,13 +561,13 @@ tqdm==4.67.1
     #   transformers
 transformers==4.57.3
     # via sentence-transformers
-tree-sitter==0.23.2
+tree-sitter==0.24.0
     # via tree-sitter-language-pack
 tree-sitter-c-sharp==0.23.1
     # via tree-sitter-language-pack
 tree-sitter-embedded-template==0.25.0
     # via tree-sitter-language-pack
-tree-sitter-language-pack==0.13.0
+tree-sitter-language-pack==0.9.0
     # via grep-ast
 tree-sitter-yaml==0.7.2
     # via tree-sitter-language-pack
