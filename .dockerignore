@@ -5,6 +5,22 @@ OLD*
 *.pyc
 .DS_Store
 .env
+.env.*
+.envaider
+.envaider.*
 .venv
 .aider.*
 build
+
+# Credentials and secrets
+.aws/
+.ssh/
+
+# AI tool history
+.claude/
+
+# Miscellaneous
+*.ipynb
+.ipynb_checkpoints/
+.vscode/
+.bash_history

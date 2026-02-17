@@ -77,6 +77,7 @@ exec aider \
     --analytics-disable \
     --no-suggest-shell-commands \
     --no-detect-urls \
+    --no-check-update \
     --no-attribute-co-authored-by \
     --no-attribute-commit-message-committer \
     --no-attribute-commit-message-author \

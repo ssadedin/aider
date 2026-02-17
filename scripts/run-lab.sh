@@ -5,15 +5,31 @@
 # mints temporary STS session credentials, and passes them into the container.
 #
 # Usage:
-#   ./scripts/run-lab.sh                          # start JupyterLab on port 8888
-#   ./scripts/run-lab.sh -p 8889:8888             # custom port
+#   ./scripts/run-lab.sh                          # start JupyterLab on port $UID
+#   ./scripts/run-lab.sh --port 9999              # custom port
 #   AIDERZ_AWS_PROFILE=myprofile ./scripts/run-lab.sh  # custom AWS profile
 
 set -euo pipefail
 
-IMAGE=${IMAGE:-jupyterlab-ai-aider}
+IMAGE=${IMAGE:-ssadedin/jupyterlab-ai-aider}
 PROFILE="${AIDERZ_AWS_PROFILE:-aiderz}"
 AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-ap-southeast-2}"
+
+# ── Parse arguments ──────────────────────────────────────────────────────
+PORT="${PORT:-$(id -u)}"
+EXTRA_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --port)
+            PORT="$2"
+            shift 2
+            ;;
+        *)
+            EXTRA_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
 
 # ── Read AWS credentials from profile ────────────────────────────────────
 CREDS_FILE="$HOME/.aws/credentials"
@@ -65,6 +81,13 @@ fi
 echo "Temporary credentials obtained (expire at $EXPIRATION)"
 
 # ── Launch container ─────────────────────────────────────────────────────
+echo
+echo "============================================"
+echo "  JupyterLab: http://127.0.0.1:$PORT/lab"
+echo "============================================"
+echo
+echo "(Ignore the port 8888 URL printed by JupyterLab below — use the URL above)"
+echo
 exec docker run \
     -e AWS_ACCESS_KEY_ID="$TEMP_KEY" \
     -e AWS_SECRET_ACCESS_KEY="$TEMP_SECRET" \
@@ -73,6 +96,6 @@ exec docker run \
     -v "$(pwd):$(pwd)" \
     -w "$(pwd)" \
     --rm -it \
-    -p 8888:8888 \
-    "$@" \
+    -p "$PORT:8888" \
+    "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" \
     "$IMAGE"

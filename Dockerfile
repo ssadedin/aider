@@ -10,7 +10,8 @@
 #     └─ jupyterlab-ai-groovy → BeakerX kernels + widgets
 #          └─ jupyterlab-ai-aider (this) → Aider AI coding assistant
 
-FROM jupyterlab-ai-groovy
+ARG REGISTRY=ssadedin
+FROM ${REGISTRY}/jupyterlab-ai-groovy
 
 # System deps required by Aider (git & build-essential already in base)
 RUN apt-get update && \
@@ -72,8 +73,9 @@ ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
 
 # Use bash as default shell in JupyterLab terminals (terminado reads SHELL)
 ENV SHELL=/bin/bash
-# TERM=ansi works best with Aider inside JupyterLab terminals
-ENV TERM=ansi
+# TERM=ansi works best with Aider inside JupyterLab terminals.
+# Set in bashrc because JupyterLab's terminal overrides ENV TERM on connect.
+RUN echo 'export TERM=ansi' >> /root/.bashrc
 
 # Install aider-lab launcher script
 COPY aider-lab /usr/local/bin/aider-lab
