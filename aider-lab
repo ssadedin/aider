@@ -1,0 +1,86 @@
+#!/bin/bash
+# aider-lab — Start Aider inside the JupyterLab container with correct settings.
+#
+# Expects AWS credentials to be provided via environment variables.
+# Uses AWS Bedrock with Claude Opus 4.6 by default.
+#
+# Usage:
+#   aider-lab [additional aider args...] [files...]
+
+set -euo pipefail
+
+# ── Models ────────────────────────────────────────────────────────────────
+MODEL=${MODEL:-bedrock/au.anthropic.claude-opus-4-6-v1}
+WEAK_MODEL=${WEAK_MODEL:-bedrock/au.anthropic.claude-haiku-4-5-20251001-v1:0}
+
+# AU opus is not yet in the model catalog; pretend it is the US version
+MODEL_SETTINGS_NAME="${MODEL_SETTINGS_NAME:-bedrock_converse/us.anthropic.claude-opus-4-6-v1}"
+
+export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-ap-southeast-2}"
+
+# ── Validate AWS credentials ─────────────────────────────────────────────
+if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
+    echo
+    echo "Error: AWS credentials are not set."
+    echo
+    echo "Please pass them into the container via environment variables:"
+    echo "  docker run -e AWS_ACCESS_KEY_ID=... -e AWS_SECRET_ACCESS_KEY=... ..."
+    echo
+    echo "Required:"
+    echo "  AWS_ACCESS_KEY_ID"
+    echo "  AWS_SECRET_ACCESS_KEY"
+    echo
+    echo "Optional:"
+    echo "  AWS_SESSION_TOKEN"
+    echo "  AWS_DEFAULT_REGION  (default: ap-southeast-2)"
+    echo
+    exit 1
+fi
+
+# ── Load .env if present ─────────────────────────────────────────────────
+if [ -f .env ]; then
+    source <(grep '^AIDER_' .env)
+fi
+
+# ── Default files to include ─────────────────────────────────────────────
+INITIAL_FILES=${AIDER_INITIAL_FILES:-"CONVENTIONS.md"}
+
+DEFAULT_FILES_ARGS=""
+if [ -f ".aiderz.default-files" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        line=$(echo "$line" | sed 's/#.*//' | xargs)
+        [ -z "$line" ] && continue
+        if [ -f "$line" ]; then
+            DEFAULT_FILES_ARGS="$DEFAULT_FILES_ARGS $line"
+        else
+            echo "Warning: default file not found, skipping: $line" >&2
+        fi
+    done < ".aiderz.default-files"
+fi
+
+# ── Subtree detection ────────────────────────────────────────────────────
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+SUBTREE_ONLY=""
+if [ -n "$GIT_ROOT" ] && [ "$GIT_ROOT" != "$(pwd)" ]; then
+    echo "Detected subdirectory: running with --subtree-only"
+    SUBTREE_ONLY="--subtree-only"
+fi
+
+# ── Run Aider ─────────────────────────────────────────────────────────────
+exec aider \
+    --model "$MODEL" \
+    --weak-model "$WEAK_MODEL" \
+    --model-settings-name "$MODEL_SETTINGS_NAME" \
+    --edit-format diff \
+    --no-auto-lint \
+    --no-gitignore \
+    --analytics-disable \
+    --no-suggest-shell-commands \
+    --no-detect-urls \
+    --no-attribute-co-authored-by \
+    --no-attribute-commit-message-committer \
+    --no-attribute-commit-message-author \
+    --no-attribute-committer \
+    $SUBTREE_ONLY \
+    $INITIAL_FILES $DEFAULT_FILES_ARGS \
+    "$@"
