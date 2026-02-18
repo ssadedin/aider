@@ -727,6 +727,16 @@ def get_parser(default_config_files, git_root):
     ######
     group = parser.add_argument_group("Other settings")
     group.add_argument(
+        "--strip-notebook-images",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "Strip base64-encoded image data from notebook output cells before sending"
+            " to the model, reducing token usage. Images are restored when writing"
+            " changes back to disk (default: False)."
+        ),
+    )
+    group.add_argument(
         "--disable-playwright",
         action="store_true",
         help="Never prompt for or attempt to install Playwright for web scraping (default: False).",

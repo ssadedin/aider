@@ -91,6 +91,21 @@ for gid in $(id -G); do
     fi
 done
 
+# ── Mount read-only directories from AIDERLAB_DIRS ────────────────────────
+# Colon-separated list of host paths to mount read-only (same path inside container).
+# Example: AIDERLAB_DIRS=/data/reference:/opt/libs ./scripts/run-lab.sh
+VOLUME_ARGS=()
+if [ -n "${AIDERLAB_DIRS:-}" ]; then
+    IFS=: read -ra _dirs <<< "$AIDERLAB_DIRS"
+    for dir in "${_dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            VOLUME_ARGS+=("-v" "$dir:$dir:ro")
+        else
+            echo "Warning: AIDERLAB_DIRS entry '$dir' is not a directory, skipping" >&2
+        fi
+    done
+fi
+
 # ── Launch container ─────────────────────────────────────────────────────
 echo
 echo "============================================"
@@ -107,6 +122,7 @@ exec docker run \
     --user "$(id -u):$(id -g)" \
     "${GROUP_ARGS[@]}" \
     -e HOME=/home/labuser \
+    "${VOLUME_ARGS[@]+"${VOLUME_ARGS[@]}"}" \
     -v "$(pwd):$(pwd)" \
     -w "$(pwd)" \
     --rm -it \

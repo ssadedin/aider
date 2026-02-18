@@ -1,6 +1,8 @@
 import base64
 import functools
+import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -320,6 +322,9 @@ class InputOutput:
         else:
             self.chat_history_file = None
 
+        self.strip_notebook_images = False
+        self._notebook_image_cache = {}
+
         self.encoding = encoding
         valid_line_endings = {"platform", "lf", "crlf"}
         if line_endings not in valid_line_endings:
@@ -450,13 +455,66 @@ class InputOutput:
             self.tool_error(f"{filename}: {e}")
             return
 
+    def _strip_notebook_images(self, filename, content):
+        """Strip base64 image data from notebook output cells, caching for restore."""
+        try:
+            nb = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            return content
+
+        if not isinstance(nb, dict) or "cells" not in nb:
+            return content
+
+        cache = {}
+        placeholder_id = 0
+
+        for cell in nb["cells"]:
+            for output in cell.get("outputs", []):
+                data = output.get("data", {})
+                for mime in list(data.keys()):
+                    if mime.startswith("image/"):
+                        placeholder = f"[base64 image data ({mime}) removed #{placeholder_id}]"
+                        cache[placeholder] = data[mime]
+                        data[mime] = placeholder
+                        placeholder_id += 1
+
+        if cache:
+            self._notebook_image_cache[str(filename)] = cache
+            return json.dumps(nb, indent=1, ensure_ascii=False)
+
+        return content
+
+    def _restore_notebook_images(self, filename, content):
+        """Restore cached base64 image data into notebook content before writing."""
+        cache = self._notebook_image_cache.get(str(filename))
+        if not cache:
+            return content
+
+        try:
+            nb = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            return content
+
+        for cell in nb.get("cells", []):
+            for output in cell.get("outputs", []):
+                data = output.get("data", {})
+                for mime in list(data.keys()):
+                    if mime.startswith("image/") and data[mime] in cache:
+                        data[mime] = cache[data[mime]]
+
+        del self._notebook_image_cache[str(filename)]
+        return json.dumps(nb, indent=1, ensure_ascii=False)
+
     def read_text(self, filename, silent=False):
         if is_image_file(filename):
             return self.read_image(filename)
 
         try:
             with open(str(filename), "r", encoding=self.encoding) as f:
-                return f.read()
+                content = f.read()
+            if self.strip_notebook_images and str(filename).endswith(".ipynb"):
+                content = self._strip_notebook_images(filename, content)
+            return content
         except FileNotFoundError:
             if not silent:
                 self.tool_error(f"{filename}: file not found error")
@@ -486,6 +544,9 @@ class InputOutput:
         """
         if self.dry_run:
             return
+
+        if self.strip_notebook_images and str(filename).endswith(".ipynb"):
+            content = self._restore_notebook_images(filename, content)
 
         delay = initial_delay
         for attempt in range(max_retries):

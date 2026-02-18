@@ -82,6 +82,8 @@ exec aider \
     --no-attribute-commit-message-committer \
     --no-attribute-commit-message-author \
     --no-attribute-committer \
+    --strip-notebook-images \
+    --no-auto-commits \
     $SUBTREE_ONLY \
     $INITIAL_FILES $DEFAULT_FILES_ARGS \
     "$@"
