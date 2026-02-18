@@ -68,21 +68,24 @@ RUN python -m playwright install --with-deps chromium
 RUN git config --system --add safe.directory '*'
 
 # Playwright browser settings
-ENV PLAYWRIGHT_BROWSERS_PATH=/root/pw-browsers
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
 
 # Use bash as default shell in JupyterLab terminals (terminado reads SHELL)
 ENV SHELL=/bin/bash
 # TERM=ansi works best with Aider inside JupyterLab terminals.
 # Set in bashrc because JupyterLab's terminal overrides ENV TERM on connect.
-RUN echo 'export TERM=ansi' >> /root/.bashrc
+RUN echo 'export TERM=ansi' >> /etc/bash.bashrc
 
 # Install aider-lab launcher script
 COPY aider-lab /usr/local/bin/aider-lab
+
+# Ensure Playwright browsers are world-readable for non-root user
+RUN chmod -R a+rX /opt/pw-browsers || true
 
 # Verify aider is installed
 RUN aider --version || true
 
 EXPOSE 8888
 
-CMD ["jupyter", "lab", "--dev-mode", "--extensions-in-dev-mode", "--ip=0.0.0.0", "--port=8888", "--allow-root", "--no-browser", "--NotebookApp.token=''"]
+CMD ["jupyter", "lab", "--dev-mode", "--extensions-in-dev-mode", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--NotebookApp.token=''"]
