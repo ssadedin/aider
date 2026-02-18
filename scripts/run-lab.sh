@@ -80,6 +80,17 @@ fi
 
 echo "Temporary credentials obtained (expire at $EXPIRATION)"
 
+# ── Collect supplementary groups ──────────────────────────────────────────
+# Pass all of the host user's groups so bind-mounted dirs accessible via
+# supplementary group membership remain accessible inside the container.
+GROUP_ARGS=()
+PRIMARY_GID=$(id -g)
+for gid in $(id -G); do
+    if [ "$gid" != "$PRIMARY_GID" ]; then
+        GROUP_ARGS+=("--group-add" "$gid")
+    fi
+done
+
 # ── Launch container ─────────────────────────────────────────────────────
 echo
 echo "============================================"
@@ -93,6 +104,9 @@ exec docker run \
     -e AWS_SECRET_ACCESS_KEY="$TEMP_SECRET" \
     -e AWS_SESSION_TOKEN="$TEMP_TOKEN" \
     -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
+    --user "$(id -u):$(id -g)" \
+    "${GROUP_ARGS[@]}" \
+    -e HOME=/home/labuser \
     -v "$(pwd):$(pwd)" \
     -w "$(pwd)" \
     --rm -it \
