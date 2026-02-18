@@ -578,6 +578,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         )
 
     io = get_io(args.pretty)
+    io.strip_notebook_images = args.strip_notebook_images
     try:
         io.rule()
     except UnicodeEncodeError as err:
