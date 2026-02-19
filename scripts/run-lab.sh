@@ -91,6 +91,26 @@ for gid in $(id -G); do
     fi
 done
 
+# ── Git root detection ────────────────────────────────────────────────────
+# If running in a subdirectory of a git repo, mount the git root so aider
+# can see the .git directory. Also handles git worktrees where .git is a file.
+GIT_VOLUME_ARGS=()
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -n "$GIT_ROOT" ] && [ "$GIT_ROOT" != "$(pwd)" ]; then
+    echo "Detected git subdirectory — mounting git root: $GIT_ROOT"
+    GIT_VOLUME_ARGS+=("-v" "$GIT_ROOT:$GIT_ROOT")
+fi
+# Handle git worktrees: .git is a file pointing to the real gitdir
+GIT_DIR="${GIT_ROOT:-.}/.git"
+if [ -f "$GIT_DIR" ]; then
+    worktree_gitdir=$(sed -n 's/^gitdir: //p' "$GIT_DIR")
+    if [ -n "$worktree_gitdir" ]; then
+        # Resolve to absolute path relative to git root
+        [[ "$worktree_gitdir" != /* ]] && worktree_gitdir="$GIT_ROOT/$worktree_gitdir"
+        GIT_VOLUME_ARGS+=("-v" "$worktree_gitdir:$worktree_gitdir")
+    fi
+fi
+
 # ── Mount read-only directories from AIDERLAB_DIRS ────────────────────────
 # Colon-separated list of host paths to mount read-only (same path inside container).
 # Example: AIDERLAB_DIRS=/data/reference:/opt/libs ./scripts/run-lab.sh
@@ -122,6 +142,7 @@ exec docker run \
     --user "$(id -u):$(id -g)" \
     "${GROUP_ARGS[@]}" \
     -e HOME=/home/labuser \
+    "${GIT_VOLUME_ARGS[@]+"${GIT_VOLUME_ARGS[@]}"}" \
     "${VOLUME_ARGS[@]+"${VOLUME_ARGS[@]}"}" \
     -v "$(pwd):$(pwd)" \
     -w "$(pwd)" \

@@ -58,6 +58,15 @@ if [ -f ".aiderz.default-files" ]; then
     done < ".aiderz.default-files"
 fi
 
+# ── Per-user state directory ──────────────────────────────────────────────
+# Store all aider working files in .aider/<uid>/ so multiple users can work
+# in the same directory without conflicts.
+AIDER_USER_DIR=".aider/$(id -u)"
+mkdir -p "$AIDER_USER_DIR"
+export AIDER_CHAT_HISTORY_FILE="$AIDER_USER_DIR/.aider.chat.history.md"
+export AIDER_INPUT_HISTORY_FILE="$AIDER_USER_DIR/.aider.input.history"
+export AIDER_TAGS_CACHE_DIR="$AIDER_USER_DIR/.aider.tags.cache.v4"
+
 # ── Subtree detection ────────────────────────────────────────────────────
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
 SUBTREE_ONLY=""
